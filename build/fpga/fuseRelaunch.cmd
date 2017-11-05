@@ -1,0 +1,1 @@
+-intstyle "ise" --timeprecision_vhdl "1ps" -incremental -o "inp_isim" -prj "inp_isim.prj" "testbench" 

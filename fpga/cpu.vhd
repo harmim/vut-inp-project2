@@ -54,16 +54,19 @@ architecture behavioral of cpu is
 	signal pc_reg : std_logic_vector(11 downto 0); -- PC
 	signal pc_inc : std_logic; -- inkrementace čítače
 	signal pc_dec : std_logic; -- dekrementace čítače
+	signal pc_clear : std_logic; -- vynulování čítače
 
 	-- Ukazatel do paměti dat (PTR).
 	signal ptr_reg : std_logic_vector(9 downto 0); -- čítač hodnot paměti
 	signal ptr_inc : std_logic; -- inkrementace ukazatele
 	signal ptr_dec : std_logic; -- dekrementace ukazatele
+	signal ptr_clear: std_logic; -- vynulování ukazatele
 
 	-- Určení začátku a konce příkazu while (CNT).
 	signal cnt_reg : std_logic_vector(11 downto 0); -- čítač počtu závorek
 	signal cnt_inc : std_logic; -- inkrementace počtu závorek
 	signal cnt_dec : std_logic; -- dekrementace počtu závorek
+	signal cnt_clear : std_logic; -- vynulování počtu závorek
 
 	-- Multiplexor MX k volbě hodnoty zapsané do paměti dat.
 	-- Vybraná hodnota, která se bude zapisovat do paměti.
@@ -72,7 +75,7 @@ architecture behavioral of cpu is
 	-- 00 => zápis dat ze vstupu
 	-- 01 => zápis hodnoty aktuální buňky zvášené o 1
 	-- 10 => zápis hodnoty aktuální buňky snížené o 1
-	signal mx_data_wdata_sel : std_logic_vector(1 downto 0);
+	signal mx_data_wdata_sel : std_logic_vector(1 downto 0) := "00";
 
 	-- Automat, který ovládá řídící signály (FSM).
 	-- definice stavů automatu
@@ -84,15 +87,15 @@ architecture behavioral of cpu is
 		s_dec_ptr, -- < - dekrementace hodnoty ukazatele
 		s_inc_0, s_inc_1, s_inc_2, -- + - inkrementace hodnoty aktuální buňky
 		s_dec_0, s_dec_1, s_dec_2, -- - - dekrementace hodnoty aktuální buňky
-		s_while_0, s_while_1, s_while_2, -- [ - začátek cyklu while
-		s_end_while_0, s_end_while_1, s_end_while_2, -- ] - konec cyklu while
+		s_while_0, s_while_1, s_while_2, s_while_code_en, -- [ - začátek cyklu while
+		s_end_while_0, s_end_while_1, s_end_while_2, s_end_while_3, s_end_while_code_en, -- ] - konec cyklu while
 		s_putchar_0, s_putchar_1, -- . - tisk hodnoty aktuální buňky
 		s_getchar_0, s_getchar_1, --  , - načtení hodnoty do aktuální buňky
-		s_break_0, s_break_1, -- ~ - ukončení prováděného cyklu while
+		s_break_0, s_break_1, s_break_code_en, -- ~ - ukončení prováděného cyklu while
 		s_return, -- null - zastavení vykonávání programu
 		s_others -- ostatní
 	);
-	signal fsm_pstate : fsm_state; -- aktuální stav
+	signal fsm_pstate : fsm_state := s_idle; -- aktuální stav
 	signal fsm_nstate : fsm_state; -- následující stav
 
 begin
@@ -107,6 +110,8 @@ begin
 				pc_reg <= pc_reg + 1;
 			elsif pc_dec = '1' then
 				pc_reg <= pc_reg - 1;
+			elsif pc_clear = '1' then
+				pc_reg <= (others => '0');
 			end if;
 		end if;
 	end process;
@@ -124,6 +129,8 @@ begin
 				ptr_reg <= ptr_reg + 1;
 			elsif ptr_dec = '1' then
 				ptr_reg <= ptr_reg - 1;
+			elsif ptr_clear = '1' then
+				ptr_reg <= (others => '0');
 			end if;
 		end if;
 	end process;
@@ -141,6 +148,8 @@ begin
 				cnt_reg <= cnt_reg + 1;
 			elsif cnt_dec = '1' then
 				cnt_reg <= cnt_reg - 1;
+			elsif cnt_clear = '1' then
+				cnt_reg <= (others => '0');
 			end if;
 		end if;
 	end process;
@@ -151,10 +160,10 @@ begin
 
 
 	-- Multiplexor MX k volbě hodnoty zapsané do paměti dat.
-	mx_data_wdata: process (CLK, RESET, mx_data_wdata_sel)
+	mx_data_wdata_proc: process (CLK, RESET, mx_data_wdata_sel)
 	begin
 		if RESET = '1' then
-			mx_data_wdata <= "00";
+			mx_data_wdata <= (others => '0');
 		elsif CLK'event and CLK = '1' then
 			case mx_data_wdata_sel is
 				when "00" =>
@@ -170,7 +179,7 @@ begin
 					mx_data_wdata <= DATA_RDATA - 1;
 
 				when others =>
-					mx_data_wdata <= "00";
+					mx_data_wdata <= (others => '0');
 
 			end case;
 		end if;
@@ -182,19 +191,19 @@ begin
 	-- Automat, který ovládá řídící signály (FSM).
 
 	-- Logika aktuálního stavu.
-	fsm_pstate: process (CLK, RESET, EN)
+	fsm_pstate_proc: process (CLK, RESET, EN)
 	begin
 		if RESET = '1' then
 			fsm_pstate <= s_idle;
 		elsif CLK'event and CLK = '1' then
 			if EN = '1' then
-				fsm_pstate = fsm_nstate;
+				fsm_pstate <= fsm_nstate;
 			end if;
 		end if;
 	end process;
 
 	-- Logika následujícího stavu a zároveň výstupní logika.
-	fsm_nstate: process (fsm_pstate, OUT_BUSY, IN_VLD, CODE_DATA, cnt_reg, DATA_RDATA)
+	fsm_nstate_proc: process (fsm_pstate, OUT_BUSY, IN_VLD, CODE_DATA, cnt_reg, DATA_RDATA)
 	begin
 		-- inicializace
 		OUT_WE <= '0';
@@ -202,21 +211,23 @@ begin
 		CODE_EN <= '0';
 		pc_inc <= '0';
 		pc_dec <= '0';
+		pc_clear <= '0';
 		ptr_inc <= '0';
 		ptr_dec <= '0';
+		ptr_clear <= '0';
 		cnt_inc <= '0';
 		cnt_dec <= '0';
+		cnt_clear <= '0';
 		mx_data_wdata_sel <= "00";
 		DATA_EN <= '0';
 		DATA_RDWR <= '0';
-		fsm_pstate <= s_others;
 
 		case fsm_pstate is
 			---------- výchozí stav
 			when s_idle =>
-				pc_reg <= (others => '0'); -- PC = 0
-				ptr_reg <= (others => '0'); -- PTR = 0
-				cnt_reg <= (others => '0'); -- CNT = 0
+				pc_clear <= '1'; -- PC = 0
+				ptr_clear <= '1'; -- PTR = 0
+				cnt_clear <= '1'; -- CNT = 0
 
 				fsm_nstate <= s_i_fetch;
 
@@ -281,7 +292,7 @@ begin
 				fsm_nstate <= s_inc_1;
 
 			when s_inc_1 =>
-				mx_data_wdata <= "01"; -- DATA_WDATA += 1
+				mx_data_wdata_sel <= "01"; -- DATA_WDATA += 1
 
 				fsm_nstate <= s_inc_2;
 
@@ -304,7 +315,7 @@ begin
 				fsm_nstate <= s_dec_1;
 
 			when s_dec_1 =>
-				mx_data_wdata <= "10"; -- DATA_WDATA -= 1
+				mx_data_wdata_sel <= "10"; -- DATA_WDATA -= 1
 
 				fsm_nstate <= s_dec_2;
 
@@ -328,16 +339,17 @@ begin
 				fsm_nstate <= s_while_1;
 
 			when s_while_1 =>
-				if DATA_RDATA /= (others => '0') then -- if (DATA_RDATA != 0)
+				if DATA_RDATA /= (DATA_RDATA'range => '0') then -- if (DATA_RDATA != 0)
 					fsm_nstate <= s_i_fetch;
 				else -- if (DATA_RDATA == 0)
-					cnt_reg <= "000000000001"; -- CNT = 1
+					cnt_inc <= '1'; -- CNT += 1
+					CODE_EN <= '1'; -- CODE_DATA = ROM[CODE_ADDR]
 
 					fsm_nstate <= s_while_2;
 				end if;
 
 			when s_while_2 =>
-				if cnt_reg = (others => '0') then -- if (CNT == 0)
+				if cnt_reg = (cnt_reg'range => '0') then -- if (CNT == 0)
 					fsm_nstate <= s_i_fetch;
 				else -- if (CNT != 0)
 					if CODE_DATA = X"5B" then -- if (CODE_DATA == '[')
@@ -348,8 +360,13 @@ begin
 
 					pc_inc <= '1'; -- PC += 1
 
-					fsm_nstate <= s_while_2;
+					fsm_nstate <= s_while_code_en;
 				end if;
+
+			when s_while_code_en =>
+				CODE_EN <= '1'; -- CODE_DATA = ROM[CODE_ADDR]
+
+				fsm_nstate <= s_while_2;
 
 
 			---------- ] - konec cyklu while
@@ -361,19 +378,19 @@ begin
 				fsm_nstate <= s_end_while_1;
 
 			when s_end_while_1 =>
-				if DATA_RDATA = (others => '0') then -- if (DATA_RDATA == 0)
+				if DATA_RDATA = (DATA_RDATA'range => '0') then -- if (DATA_RDATA == 0)
 					pc_inc <= '1'; -- PC += 1
 
 					fsm_nstate <= s_i_fetch;
 				else -- if (DATA_RDATA != 0)
-					cnt_reg <= "000000000001"; -- CNT = 1
+					cnt_inc <= '1'; -- CNT += 1
 					pc_dec <= '1'; -- PC -= 1
 
-					fsm_nstate <= s_end_while_2;
+					fsm_nstate <= s_end_while_code_en;
 				end if;
 
 			when s_end_while_2 =>
-				if cnt_reg = (others => '0') then -- if (CNT == 0)
+				if cnt_reg = (cnt_reg'range => '0') then -- if (CNT == 0)
 					fsm_nstate <= s_i_fetch;
 				else
 					if CODE_DATA = X"5D" then -- if (CODE_DATA == ']')
@@ -382,14 +399,22 @@ begin
 						cnt_dec <= '1'; -- CNT -= 1
 					end if;
 
-					if cnt_reg = (others => '0') then -- if (CNT == 0)
-						pc_inc <= '1'; -- PC += 1
-					else -- if (CNT != 0)
-						pc_dec <= '1'; -- PC -= 1
-					end if;
-
-					fsm_nstate <= s_end_while_2;
+					fsm_nstate <= s_end_while_3;
 				end if;
+
+			when s_end_while_3 =>
+				if cnt_reg = (cnt_reg'range => '0') then -- if (CNT == 0)
+					pc_inc <= '1'; -- PC += 1
+				else -- if (CNT != 0)
+					pc_dec <= '1'; -- PC -= 1
+				end if;
+
+				fsm_nstate <= s_end_while_code_en;
+
+			when s_end_while_code_en =>
+				CODE_EN <= '1'; -- CODE_DATA = ROM[CODE_ADDR]
+
+				fsm_nstate <= s_end_while_2;
 
 
 			---------- . - tisk hodnoty aktuální buňky
@@ -401,7 +426,7 @@ begin
 				fsm_nstate <= s_putchar_1;
 
 			when s_putchar_1 =>
-				if OUT_BUSY '1' then
+				if OUT_BUSY = '1' then
 					-- DATA_RDATA = RAM[PTR]
 					DATA_EN <= '1';
 					DATA_RDWR <= '0';
@@ -418,14 +443,15 @@ begin
 
 			---------- , - načtení hodnoty do aktuální buňky
 			when s_getchar_0 =>
-				IN_REQ <= '1'; -- IN_REQ = 1
-				mx_data_wdata <= "00"; -- DATA_WDATA = IN_DATA
+				IN_REQ <= '1';
+				mx_data_wdata_sel <= "00"; -- DATA_WDATA = IN_DATA
 
 				fsm_nstate <= s_getchar_1;
 
 			when s_getchar_1 =>
 				if IN_VLD /= '1' then
-					mx_data_wdata <= "00"; -- DATA_WDATA = IN_DATA
+					IN_REQ <= '1';
+					mx_data_wdata_sel <= "00"; -- DATA_WDATA = IN_DATA
 
 					fsm_nstate <= s_getchar_1;
 				else
@@ -441,13 +467,13 @@ begin
 
 			---------- ~ - ukončení prováděného cyklu while
 			when s_break_0 =>
-				cnt_reg <= "000000000001"; -- CNT = 1
+				cnt_inc <= '1'; -- CNT += 1
 				pc_inc <= '1'; -- PC += 1
 
-				fsm_nstate <= s_break_1;
+				fsm_nstate <= s_break_code_en;
 
 			when s_break_1 =>
-				if cnt_reg = (others => '0') then -- if (CNT == 0)
+				if cnt_reg = (cnt_reg'range => '0') then -- if (CNT == 0)
 					fsm_nstate <= s_i_fetch;
 				else -- if (CNT != 0)
 					if CODE_DATA = X"5B" then -- if (CODE_DATA = '[')
@@ -458,8 +484,13 @@ begin
 
 					pc_inc <= '1'; -- PC += 1
 
-					fsm_nstate <= s_break_1;
+					fsm_nstate <= s_break_code_en;
 				end if;
+
+			when s_break_code_en =>
+				CODE_EN <= '1'; -- CODE_DATA = ROM[CODE_ADDR]
+
+				fsm_nstate <= s_break_1;
 
 
 			---------- null - zastavení vykonávání programu

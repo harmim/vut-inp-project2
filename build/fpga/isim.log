@@ -1,0 +1,76 @@
+ISim log file
+Running: C:\FitkitSVN\apps\demo\Projekt2\build\fpga\inp_isim.exe -intstyle ise -gui -tclbatch inp_isim.tcl 
+ISim O.40d (signature 0x79f3f3a8)
+WARNING: A WEBPACK license was found.
+WARNING: Please use Xilinx License Configuration Manager to check out a full ISim license.
+WARNING: ISim will run in Lite mode. Please refer to the ISim documentation for more information on the differences between the Lite and the Full version.
+This is a Lite version of ISim.
+Time resolution is 1 ps
+# onerror resume
+# puts ==========================================================
+Initialize simulation
+==========================================================
+type isim_restart to restart simulation
+# set FIRSTRUN 1
+# proc add_divider TEXT 
+    divider add "$TEXT"
+   
+# proc add_wave_label  FLAGS LABEL NAME  
+      set cmd "wave add $FLAGS"
+      if { $LABEL != "" } {
+         append cmd " -name \"$LABEL\""
+      }
+      append cmd " $NAME"
+      if {[catch {eval $cmd } stderr] != 0} {
+         puts "  WARNING : Signal $NAME doesn't exist"
+      }
+   
+# proc add_wave FLAGS NAME 
+    add_wave_label "$FLAGS" "" "$NAME"
+   
+# proc isim_restart  
+      global FIRSTRUN
+      #set TESTBENCH_SCRIPT "C:/FitkitSVN/apps/demo/Projekt2/build/fpga/../../fpga/sim/isim.tcl"
+      if {$FIRSTRUN == 0} { wcfg new }
+      set FIRSTRUN 0
+      #puts "../../fpga/sim/isim.tcl" 
+      #puts [pwd]
+      if {[catch {source "../../fpga/sim/isim.tcl"}]} { 
+         puts "isim source failed"
+         flush stdout
+      } else {
+         puts "isim found, tb entity: testbench"
+         flush stdout
+         if {[catch {isim_script} stderr] != 0} {
+            puts "ERROR: $stderr"
+         }
+      } 
+   
+# isim_restart
+Simulator is doing circuit initialization process.
+Finished circuit initialization process.
+at 0 ps, Instance /testbench/lcd/ : Warning: There is an 'U'|'X'|'W'|'Z'|'-' in an arithmetic operand, the result will be 'X'(es).
+at 0 ps, Instance /testbench/lcd/ : Warning: CONV_INTEGER: There is an 'U'|'X'|'W'|'Z'|'-' in an arithmetic operand, and it has been converted to 0.
+at 77257800 ps(6): Note: LCD: Set Function (/testbench/lcd/).
+at 228457800 ps(6): Note: LCD: Clear Display (/testbench/lcd/).
+at 379657800 ps(6): Note: LCD: Cursor Home (/testbench/lcd/).
+at 530857800 ps(6): Note: LCD: Display on/off Control (/testbench/lcd/).
+at 682057800 ps(6): Note: LCD: Entry Mode Set (/testbench/lcd/).
+at 833257800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 1135657800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 1438057800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 1740457800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 2042857800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 2345257800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 2647657800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 2950057800 ps(6): Note: LCD: CGRAM Address Setting (/testbench/lcd/).
+at 3252495600 ps(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+at 3554933400 ps(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+at 3857371200 ps(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+at 4159809 ns(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+at 4462246800 ps(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+at 4764684600 ps(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+at 5067122400 ps(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+at 5369560200 ps(6): Note: LCD: DDRAM Address Setting (/testbench/lcd/).
+# run 1ms
+# run 20ms

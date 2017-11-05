@@ -1,0 +1,29 @@
+Command line:
+   inp_isim.exe
+     -simmode  gui
+     -simrunnum  0
+     -socket  1787
+
+Sun Nov 05 15:36:14 2017
+
+
+ Elaboration Time: 0.020029 sec
+
+ Current Memory Usage: 463.356 Meg
+
+ Total Signals          : 481
+ Total Nets             : 11321
+ Total Signal Drivers   : 252
+ Total Blocks           : 34
+ Total Primitive Blocks : 26
+ Total Processes        : 148
+ Total Traceable Variables  : 167
+ Total Scalar Nets and Variables : 50025
+Total Line Count : 1163
+
+ Total Simulation Time: 12.2777 sec
+
+ Current Memory Usage: 306.07 Meg
+
+Sun Nov 05 15:46:39 2017
+

@@ -4,8 +4,7 @@
 
 # Spusteni simulace
 #========================================
-proc isim_script {}
-{
+proc isim_script {} {
 	# Postupne vlozeni signalu do okna
 	add_wave_label "-color #FFFF00" "reset" /testbench/uut/fpga_inst/reset
 	add_wave_label "-color #ff8000" "clk" /testbench/uut/fpga_inst/clk
